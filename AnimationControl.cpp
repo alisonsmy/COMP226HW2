@@ -85,12 +85,42 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 
 	// the global time warp can be applied directly to the elapsed time between updates
 	float warped_elapsed_time = global_timewarp * _elapsed_time;
+	//TODO:
+	std::list<long> SF1, SF2, SF3; //SF list
+	//std::list<long>::iterator n1, n2, n3;
+	long sf;
+	//Vector3D SL, SR, EL, ER;
+	for (unsigned short c = 0; c < characters.size(); c++)
+	{
+		//characters[c]->getBonePositions("LeftToeBase", SL, EL);
+		//characters[c]->getBonePositions("RightToeBase", SR, ER);
+		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
+		if (run_time == 0.0f) //standing pose
+		{
+			sf = controller->getSequenceFrame();
+			if (c == 0)
+			{
+				SF1.push_back(sf); //add frame into frame list for each character
+			}
+			else if (c == 1)
+			{
+				SF2.push_back(sf);
+			}
+			else
+			{
+				SF3.push_back(sf);
+			}
+			Color col = Color(0.059f, 0.608f, 0.302f);
+			Object* marker1 = createMarkerBox(SL, col);
+			render_lists.erasables.push_back(marker1);
+		}
+	}
 
 	run_time += warped_elapsed_time;
+
 	for (unsigned short c = 0; c < characters.size(); c++)
 	{
 		if (characters[c] != NULL) characters[c]->update(run_time);
-
 		// pull local time and frame out of each skeleton's controller
 		// (dangerous upcast)
 		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
