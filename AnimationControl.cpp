@@ -10,6 +10,7 @@
 // C/C++ libraries
 #include <cstdio>
 #include <complex>
+#include <vector>
 // SKA modules
 #include <Core/Utilities.h>
 //#include <Animation/RawMotionController.h>
@@ -44,8 +45,12 @@ LoadSpec load_specs[NUM_CHARACTERS] = {
 	//LoadSpec(AMC, 1.0f, Color(0.8f,0.4f,0.8f), string("02/02_01.amc"), string("02/02.asf")),
 	//LoadSpec(AMC, 1.0f, Color(1.0f,0.4f,0.3f), string("16/16_55.amc"), string("16/16.asf")),
 	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("avoid/Avoid 9.bvh"))
+
+	// character 1 (purple) - fast walk
 	LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh")),
+	// character 2 (red-orange) - medium walk
 	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh")),
+	// character 3 (green) - slow walk
 	LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
 };
 
@@ -79,53 +84,44 @@ void AnimationControl::restart()
 	next_marker_time = marker_time_interval;
 }
 
+//std::vector<Vector3D> left_toe_position[NUM_CHARACTERS];
+std::vector<long> keyframes_frame[NUM_CHARACTERS];  // frame number
+std::vector<float> keyframes_time[NUM_CHARACTERS];  // local time
+int first_pass_through[NUM_CHARACTERS] = { 0 };
 bool AnimationControl::updateAnimation(float _elapsed_time)
 {
 	if (!ready) return false;
 
 	// the global time warp can be applied directly to the elapsed time between updates
 	float warped_elapsed_time = global_timewarp * _elapsed_time;
-	//TODO:
-	std::list<long> SF1, SF2, SF3; //SF list
-	//std::list<long>::iterator n1, n2, n3;
-	long sf;
-	//Vector3D SL, SR, EL, ER;
-	for (unsigned short c = 0; c < characters.size(); c++)
-	{
-		//characters[c]->getBonePositions("LeftToeBase", SL, EL);
-		//characters[c]->getBonePositions("RightToeBase", SR, ER);
-		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
-		if (run_time == 0.0f) //standing pose
-		{
-			sf = controller->getSequenceFrame();
-			if (c == 0)
-			{
-				SF1.push_back(sf); //add frame into frame list for each character
-			}
-			else if (c == 1)
-			{
-				SF2.push_back(sf);
-			}
-			else
-			{
-				SF3.push_back(sf);
-			}
-			Color col = Color(0.059f, 0.608f, 0.302f);
-			Object* marker1 = createMarkerBox(SL, col);
-			render_lists.erasables.push_back(marker1);
-		}
-	}
 
 	run_time += warped_elapsed_time;
-
 	for (unsigned short c = 0; c < characters.size(); c++)
 	{
 		if (characters[c] != NULL) characters[c]->update(run_time);
+
 		// pull local time and frame out of each skeleton's controller
 		// (dangerous upcast)
 		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
 		display_data.sequence_time[c] = controller->getSequenceTime();
 		display_data.sequence_frame[c] = controller->getSequenceFrame();
+
+		/* TODO: detect keyframe */
+		Vector3D start, end;
+		characters[c]->getBonePositions("LeftToeBase", start, end);
+		if (end.y == 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		{
+			keyframes_frame[c].push_back(display_data.sequence_frame[c]);  //getSequenceFrame()
+			keyframes_time[c].push_back(display_data.sequence_time[c]);  //getSequenceTime()
+			//cout << keyframes_time[c].back() << "\n";
+		}
+		if (display_data.sequence_frame[c] == 0) //not working - never true
+		{
+			first_pass_through[c]++;
+			cout << first_pass_through[c];
+		}
+		//left_toe_position[c].push_back(end);
+		//cout << left_toe_position[c=].back() << "\n";
 	}
 
 	if (run_time >= next_marker_time && run_time <= max_marker_time)
