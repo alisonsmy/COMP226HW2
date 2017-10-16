@@ -40,14 +40,14 @@ struct LoadSpec {
 		: mocap_type(_mocap_type), scale(_scale), color(_color), motion_file(_motion_file), skeleton_file(_skeleton_file) { }
 };
 
-const short NUM_CHARACTERS = 3;
+const short NUM_CHARACTERS = 2;
 LoadSpec load_specs[NUM_CHARACTERS] = {
 	//LoadSpec(AMC, 1.0f, Color(0.8f,0.4f,0.8f), string("02/02_01.amc"), string("02/02.asf")),
 	//LoadSpec(AMC, 1.0f, Color(1.0f,0.4f,0.3f), string("16/16_55.amc"), string("16/16.asf")),
 	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("avoid/Avoid 9.bvh"))
 
 	// character 1 (purple) - fast walk
-	LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh")),
+	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh")),
 	// character 2 (red-orange) - medium walk
 	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh")),
 	// character 3 (green) - slow walk
@@ -108,22 +108,72 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 
 		/* TODO: detect keyframe */
 		Vector3D start, end;
-		characters[c]->getBonePositions("LeftToeBase", start, end);
-		if (end.y == 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		//characters[c]->getBonePositions("RightToeBase", start, end);
+		characters[c]->getBonePositions("RightToeBase", start, end);
+		/*
+		if (start.y  <= 5 && first_pass_through[c] == 1)
 		{
+			keyframes_frame[c].push_back(display_data.sequence_frame[c]);
+			keyframes_time[c].push_back(display_data.sequence_time[c]);
+			cout << "This is time frame: " << keyframes_time[c].back() << "\n";
+			cout << "This is model frame: " << keyframes_frame[c].back() << "\n";
+			
+		}*/
+
+
+
+
+		if (start.y <= 0.080 && start.y >= 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		{
+			Color color = Color(0.8f, 0.3f, 0.8f);
+			Object* marker = createMarkerBox(end, color);
+			render_lists.erasables.push_back(marker);
+			//next_marker_time += marker_time_interval;
+
 			keyframes_frame[c].push_back(display_data.sequence_frame[c]);  //getSequenceFrame()
 			keyframes_time[c].push_back(display_data.sequence_time[c]);  //getSequenceTime()
-			//cout << keyframes_time[c].back() << "\n";
+				
+			//cout << "This is time frame: " << keyframes_time[c].back() << "\n";
+			//cout << "This is model frame: " << keyframes_frame[c].back() << "\n";
+
+			//Can assume start of frame 0 is when both feet are on the ground
+			//Everytime end.y <= 0 the left foot is on the ground and can use that as a keyframe
+			//
+			cout << "This is the height of y: " << end.y << endl;
 		}
+
+		//characters[c]->getBonePositions("LeftToeBase", start, end);
+		characters[c]->getBonePositions("LeftToeBase", start, end);
+
+
+		if (start.y <= 0.080 && start.y >= 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		{
+			Color color = Color(0.3f, 0.3f, 0.9f);
+			Object* marker = createMarkerBox(end, color);
+			render_lists.erasables.push_back(marker);
+			//next_marker_time += marker_time_interval;
+			
+			keyframes_frame[c].push_back(display_data.sequence_frame[c]);  //getSequenceFrame()
+			keyframes_time[c].push_back(display_data.sequence_time[c]);  //getSequenceTime()
+			//cout << "This is time frame: " << keyframes_time[c].back() << "\n";
+			//cout << "This is model frame: " << keyframes_frame[c].back() << "\n";
+			
+			//Can assume start of frame 0 is when both feet are on the ground
+			//Everytime end.y <= 0 the left foot is on the ground and can use that as a keyframe
+			//
+			//cout << "This is the height of y: " << end.y << endl;
+		}
+
+
 		if (display_data.sequence_frame[c] == 0) //not working - never true
 		{
 			first_pass_through[c]++;
-			cout << first_pass_through[c];
+			//cout << first_pass_through[c];
 		}
 		//left_toe_position[c].push_back(end);
 		//cout << left_toe_position[c=].back() << "\n";
 	}
-
+/*
 	if (run_time >= next_marker_time && run_time <= max_marker_time)
 	{
 		Color color = Color(0.8f, 0.3f, 0.3f);
@@ -135,6 +185,7 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 		render_lists.erasables.push_back(marker);
 		next_marker_time += marker_time_interval;
 	}
+	*/
 
 	return true;
 }
