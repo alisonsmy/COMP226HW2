@@ -40,18 +40,18 @@ struct LoadSpec {
 		: mocap_type(_mocap_type), scale(_scale), color(_color), motion_file(_motion_file), skeleton_file(_skeleton_file) { }
 };
 
-const short NUM_CHARACTERS = 2;
+const short NUM_CHARACTERS = 1;
 LoadSpec load_specs[NUM_CHARACTERS] = {
 	//LoadSpec(AMC, 1.0f, Color(0.8f,0.4f,0.8f), string("02/02_01.amc"), string("02/02.asf")),
 	//LoadSpec(AMC, 1.0f, Color(1.0f,0.4f,0.3f), string("16/16_55.amc"), string("16/16.asf")),
 	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("avoid/Avoid 9.bvh"))
 
 	// character 1 (purple) - fast walk
-	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh")),
+	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh"))
 	// character 2 (red-orange) - medium walk
-	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh")),
+	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh"))
 	// character 3 (green) - slow walk
-	LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
+	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
 };
 
 Object* createMarkerBox(Vector3D position, Color _color)
@@ -88,6 +88,10 @@ void AnimationControl::restart()
 std::vector<long> keyframes_frame[NUM_CHARACTERS];  // frame number
 std::vector<float> keyframes_time[NUM_CHARACTERS];  // local time
 int first_pass_through[NUM_CHARACTERS] = { 0 };
+//int slow_skelevalues[4] = { 0.45, -0.55, 1.3, -0.35 };  // in order
+//int left_time_pause_foot[NUM_CHARACTERS] = { 0.9f };
+//int right_time_pause_foot[NUM_CHARACTERS] = { 0.9f };
+bool lr_skel_bool[NUM_CHARACTERS] = { true };  // right = true, left = false
 bool AnimationControl::updateAnimation(float _elapsed_time)
 {
 	if (!ready) return false;
@@ -106,6 +110,12 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 		display_data.sequence_time[c] = controller->getSequenceTime();
 		display_data.sequence_frame[c] = controller->getSequenceFrame();
 
+		if (display_data.sequence_frame[c] == 1) //not working - never true
+		{
+			first_pass_through[c]++;
+			cout << first_pass_through[c];
+		}
+		
 		/* TODO: detect keyframe */
 		Vector3D start, end;
 		//characters[c]->getBonePositions("RightToeBase", start, end);
@@ -123,7 +133,8 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 
 
 
-		if (start.y <= 0.080 && start.y >= 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		if (end.y <= 0.45 && end.y >= -1 && first_pass_through[c] == 0 
+			&& !lr_skel_bool[c] && (keyframes_time[c].empty() || (controller->getSequenceTime() - keyframes_time[c].back() >= 0.9f)))  //need a better condition - y is never exactly 0
 		{
 			Color color = Color(0.8f, 0.3f, 0.8f);
 			Object* marker = createMarkerBox(end, color);
@@ -139,14 +150,18 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 			//Can assume start of frame 0 is when both feet are on the ground
 			//Everytime end.y <= 0 the left foot is on the ground and can use that as a keyframe
 			//
-			cout << "This is the height of y: " << end.y << endl;
+			cout << "Right Foot Y: " << end.y << endl;
+
+			lr_skel_bool[c] = true;
 		}
 
+
 		//characters[c]->getBonePositions("LeftToeBase", start, end);
+
 		characters[c]->getBonePositions("LeftToeBase", start, end);
-
-
-		if (start.y <= 0.080 && start.y >= 0 && first_pass_through[c] <= 1)  //need a better condition - y is never exactly 0
+		
+		if (end.y <= 1.3 && end.y >= -1 && first_pass_through[c] == 0
+			&& lr_skel_bool[c] && ( keyframes_time[c].size() == 0 || (controller->getSequenceTime() - keyframes_time[c].back() >= 0.9f) ))  //need a better condition - y is never exactly 0
 		{
 			Color color = Color(0.3f, 0.3f, 0.9f);
 			Object* marker = createMarkerBox(end, color);
@@ -160,16 +175,12 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 			
 			//Can assume start of frame 0 is when both feet are on the ground
 			//Everytime end.y <= 0 the left foot is on the ground and can use that as a keyframe
-			//
-			//cout << "This is the height of y: " << end.y << endl;
+			cout << "Left foot y: " << end.y << endl;
+			lr_skel_bool[c] = false;
 		}
 
 
-		if (display_data.sequence_frame[c] == 0) //not working - never true
-		{
-			first_pass_through[c]++;
-			//cout << first_pass_through[c];
-		}
+
 		//left_toe_position[c].push_back(end);
 		//cout << left_toe_position[c=].back() << "\n";
 	}
