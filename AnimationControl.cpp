@@ -24,6 +24,7 @@
 #include "AnimationControl.h"
 #include "RenderLists.h"
 #include "OpenMotionSequenceController.h"
+#include <vector>
 
 // global single instance of the animation controller
 AnimationControl anim_ctrl;
@@ -40,18 +41,18 @@ struct LoadSpec {
 		: mocap_type(_mocap_type), scale(_scale), color(_color), motion_file(_motion_file), skeleton_file(_skeleton_file) { }
 };
 
-const short NUM_CHARACTERS = 1;
+const short NUM_CHARACTERS = 2;
 LoadSpec load_specs[NUM_CHARACTERS] = {
 	//LoadSpec(AMC, 1.0f, Color(0.8f,0.4f,0.8f), string("02/02_01.amc"), string("02/02.asf")),
 	//LoadSpec(AMC, 1.0f, Color(1.0f,0.4f,0.3f), string("16/16_55.amc"), string("16/16.asf")),
 	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("avoid/Avoid 9.bvh"))
 
 	// character 1 (purple) - fast walk
-	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh"))
+	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh")),
 	// character 2 (red-orange) - medium walk
-	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh"))
+	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh")),
 	// character 3 (green) - slow walk
-	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
+	LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
 };
 
 Object* createMarkerBox(Vector3D position, Color _color)
@@ -88,6 +89,8 @@ void AnimationControl::restart()
 std::vector<long> keyframes_frame[NUM_CHARACTERS];  // frame number
 std::vector<float> keyframes_time[NUM_CHARACTERS];  // local time
 int first_pass_through[NUM_CHARACTERS] = { 0 };
+int all_pass_through = 0;
+int keylist_size[NUM_CHARACTERS];
 //int slow_skelevalues[4] = { 0.45, -0.55, 1.3, -0.35 };  // in order
 //int left_time_pause_foot[NUM_CHARACTERS] = { 0.9f };
 //int right_time_pause_foot[NUM_CHARACTERS] = { 0.9f };
@@ -129,9 +132,6 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 			cout << "This is model frame: " << keyframes_frame[c].back() << "\n";
 			
 		}*/
-
-
-
 
 		if (end.y <= 0.45 && end.y >= -1 && first_pass_through[c] == 0 
 			&& !lr_skel_bool[c] && (keyframes_time[c].empty() || (controller->getSequenceTime() - keyframes_time[c].back() >= 0.9f)))  //need a better condition - y is never exactly 0
@@ -178,12 +178,53 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 			cout << "Left foot y: " << end.y << endl;
 			lr_skel_bool[c] = false;
 		}
-
-
+		if (first_pass_through[c] == 1)
+		{
+			all_pass_through++;
+			keylist_size[c] = keyframes_frame[c].size();
+		}
 
 		//left_toe_position[c].push_back(end);
 		//cout << left_toe_position[c=].back() << "\n";
 	}
+	int min_size = 0, same_frame = 0;
+	if (all_pass_through == NUM_CHARACTERS) 
+	{
+		min_size = keylist_size[0];
+		for (unsigned short c = 0; c < characters.size(); c++) 
+		{
+			if (min_size > keylist_size[c])
+			{
+				min_size = keylist_size[c];
+			}
+		}
+		//cout << "Min size is " << min_size << "\n";
+	}
+	long f;
+	int index = 0, stop = 0;
+	if (all_pass_through == NUM_CHARACTERS)
+	{
+		while (stop != 1)
+		{
+			if (index > min_size)
+			{
+				stop = 1;
+			}
+			f = keyframes_frame[0].at(index);
+			for (int i = 0; i < min_size; i++)
+			{
+				if (keyframes_frame[1].at(i) == f)
+				{
+					same_frame++;
+				}
+			}
+			index++;
+		}
+		cout << "same frame is " << same_frame << "\n";
+	}
+	
+	//cout << keyframes_frame[1].size() << endl; //0->39, 1->32
+	//cout << keyframes_time[1].size() << endl;
 /*
 	if (run_time >= next_marker_time && run_time <= max_marker_time)
 	{
