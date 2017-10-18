@@ -40,7 +40,7 @@ struct LoadSpec {
 		: mocap_type(_mocap_type), scale(_scale), color(_color), motion_file(_motion_file), skeleton_file(_skeleton_file) { }
 };
 
-const short NUM_CHARACTERS = 1;
+const short NUM_CHARACTERS = 2;
 LoadSpec load_specs[NUM_CHARACTERS] = {
 	//LoadSpec(AMC, 1.0f, Color(0.8f,0.4f,0.8f), string("02/02_01.amc"), string("02/02.asf")),
 	//LoadSpec(AMC, 1.0f, Color(1.0f,0.4f,0.3f), string("16/16_55.amc"), string("16/16.asf")),
@@ -49,9 +49,9 @@ LoadSpec load_specs[NUM_CHARACTERS] = {
 	// character 1 (purple) - fast walk
 	//LoadSpec(BVH, 0.2f, Color(0.8f,0.4f,0.8f), string("locomotion_takes_Oct03/Take 2017-10-03 03.42.17 PM.bvh"))
 	// character 2 (red-orange) - medium walk
-	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh"))
+	LoadSpec(BVH, 0.2f, Color(1.0f,0.4f,0.3f), string("locomotion_takes_Oct03/Take 2017-10-03 03.43.40 PM.bvh")),
 	// character 3 (green) - slow walk
-	//LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
+	LoadSpec(BVH, 0.2f, Color(0.0f,1.0f,0.0f), string("locomotion_takes_Oct03/Take 2017-10-03 03.55.32 PM.bvh"))
 };
 
 Object* createMarkerBox(Vector3D position, Color _color)
@@ -87,6 +87,7 @@ void AnimationControl::restart()
 //std::vector<Vector3D> left_toe_position[NUM_CHARACTERS];
 std::vector<long> keyframes_frame[NUM_CHARACTERS];  // frame number
 std::vector<float> keyframes_time[NUM_CHARACTERS];  // local time
+int i, j = 0;
 int first_pass_through[NUM_CHARACTERS] = { 0 };
 //int slow_skelevalues[4] = { 0.45, -0.55, 1.3, -0.35 };  // in order
 //int left_time_pause_foot[NUM_CHARACTERS] = { 0.9f };
@@ -101,16 +102,48 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 
 	run_time += warped_elapsed_time;
 	for (unsigned short c = 0; c < characters.size(); c++)
-	{
-		if (characters[c] != NULL) characters[c]->update(run_time);
+	{	
+		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
+		long current_frame = controller->getSequenceFrame();
+		
+		if (c == 1)  // slower character
+		{
+			if (characters[c] != NULL) characters[c]->update(run_time);  // no time warp
+
+			if (first_pass_through[c] > 0)
+			{
+				if (current_frame == keyframes_frame[c].at(j))
+				{
+					if (j == keyframes_frame[1].size() - 1) j = 0;  // increment through keyframe list
+					else j++;
+				}
+			}
+		}
+		else  // faster character
+		{
+			if (first_pass_through[c] == 0)  // still in first pass
+			{
+				if (characters[c] != NULL) characters[c]->update(run_time);  // no time warp
+			}
+			else 
+			{
+				if (characters[c] != NULL) characters[c]->update(run_time / warpTime(i,j));  // apply time warp
+				
+				if (current_frame == keyframes_frame[c].at(i))
+				{
+					if (i == keyframes_frame[0].size() - 1) i = 0;  // increment through keyframe list
+					else i++;
+				}
+			}
+		}
 
 		// pull local time and frame out of each skeleton's controller
 		// (dangerous upcast)
-		OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
+		//OpenMotionSequenceController* controller = (OpenMotionSequenceController*)characters[c]->getMotionController();
 		display_data.sequence_time[c] = controller->getSequenceTime();
 		display_data.sequence_frame[c] = controller->getSequenceFrame();
 
-		if (display_data.sequence_frame[c] == 1) //not working - never true
+		if (display_data.sequence_frame[c] == 0) //not working - never true
 		{
 			first_pass_through[c]++;
 			cout << first_pass_through[c];
@@ -199,6 +232,12 @@ bool AnimationControl::updateAnimation(float _elapsed_time)
 	*/
 
 	return true;
+}
+
+float AnimationControl::warpTime(int i, int j)
+{
+	cout << "time warpppp: " << keyframes_time[1].at(j) / keyframes_time[0].at(i);
+	return keyframes_time[1].at(j) / keyframes_time[0].at(i);
 }
 
 static Skeleton* buildCharacter(
