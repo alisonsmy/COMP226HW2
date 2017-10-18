@@ -45,6 +45,8 @@ public:
 	// _elapsed_time should be the time (in seconds) since the last frame/update.
 	bool updateAnimation(float _elapsed_time);
 
+	float warpTime(int i, int j);
+
 	bool isReady() { return ready; }
 
 	float getRunTime() { return run_time; }
